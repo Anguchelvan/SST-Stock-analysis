@@ -31,16 +31,15 @@ def get_info(t):
 	return sector['sector']
 
 
-final_data =[]
+
+frames = []
 for q in quotes:
-	temp = data[q]
-	temp.info
-	temp['Date'] = temp.index
-	temp['Quote'] = q
-	temp['Sector'] = get_info(q)
-	temp_dict = temp.to_dict('records')
-	for d in temp_dict:
-		final_data.append(d)
+	temp = data.loc[:,q]
+	temp.loc[:,'Date'] = temp.index
+	temp.loc[:,'Quote'] = q
+	temp.loc[:,'Sector'] = get_info(q)
+	frames.append(temp)
+df = pd.concat(frames)
 
 		
 mySchema = temp_schema = StructType([
@@ -55,7 +54,7 @@ mySchema = temp_schema = StructType([
 	StructField('Sector', StringType(), True),
     ])
 	
-df = pd.DataFrame(final_data)	
+#df = pd.DataFrame(final_data)	
 	
 stock_df = spark.createDataFrame(df,schema= mySchema)
 stock_df.printSchema()
