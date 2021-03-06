@@ -40,7 +40,8 @@ for q in quotes:
 	temp.loc[:,'Sector'] = get_info(q)
 	frames.append(temp)
 df = pd.concat(frames)
-
+df = df.fillna(0)
+df['Volume'] = df['Volume'].astype(float) 
 		
 mySchema = temp_schema = StructType([
     StructField('Open', DoubleType(), False),
@@ -48,29 +49,55 @@ mySchema = temp_schema = StructType([
     StructField('Low', DoubleType(), False),
     StructField('Close', DoubleType(), False),
     StructField('Adj Close', DoubleType(), True),
-    StructField('Volume', LongType(), True),
+    StructField('Volume', DoubleType(), True),
     StructField('Date', TimestampType(), True),
 	StructField('Quote', StringType(), True),
 	StructField('Sector', StringType(), True),
     ])
-	
-#df = pd.DataFrame(final_data)	
-	
+
+
+#df = pd.DataFrame(final_data)		
 stock_df = spark.createDataFrame(df,schema= mySchema)
 stock_df.printSchema()
 stock_df.show()
 
 
-stock_df.write.format('jdbc').options(
+seconds=time.time()
+filename = stock_daily+ str(int(seconds))
+
+if period =='max':
+	stock_df.write.format('jdbc').options(
+      url='jdbc:mysql://localhost/stock',
+      driver='com.mysql.jdbc.Driver',
+      dbtable='stock_hist',
+      user='root',
+      password='angu123').mode('overwrite').save()
+	stock_df.coalesce(1).write.format("com.databricks.spark.csv").option('header', 'true').save(filename)
+	
+if period == '1d':
+
+	stock_df.write.format('jdbc').options(
       url='jdbc:mysql://localhost/stock',
       driver='com.mysql.jdbc.Driver',
       dbtable='stock_hist',
       user='root',
       password='angu123').mode('append').save()
+	stock_df.coalesce(1).write.format("com.databricks.spark.csv").option('header', 'true').save(filename)
+	  
+if period != 'max' and period != '1d':
+	stock_df_hist = sqlContext.read.format('jdbc').options(url='jdbc:mysql://localhost/stock', dbtable='stock_hist',driver='com.mysql.jdbc.Driver',user='root',password='angu123').load()
+	incr = stock_df.join(stock_df_hist,(stock_df.Date == stock_df_hist.Date),how='left_anti')
+	incr.write.format('jdbc').options(
+      url='jdbc:mysql://localhost/stock',
+      driver='com.mysql.jdbc.Driver',
+      dbtable='stock_hist',
+      user='root',
+      password='angu123').mode('append').save()
+	incr.coalesce(1).write.format("com.databricks.spark.csv").option('header', 'true').save(filename)
 
-seconds=time.time()
-filename = stock_daily+ str(int(seconds))
-stock_df.coalesce(1).write.format("com.databricks.spark.csv").save(filename)
+
+
+
 
 
 
